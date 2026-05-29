@@ -1,0 +1,39 @@
+// ══════════════════════════════════════════════════════════
+//  মেস মিল ট্র্যাকার — storage.rules
+//  Firebase Console → Storage → Rules এ paste করুন
+// ══════════════════════════════════════════════════════════
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Avatar photos — /avatars/{uid}/filename
+    match /avatars/{uid}/{fileName} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.size < 5 * 1024 * 1024  // 5MB max (compress এর পর)
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Mess shared files — /messes/{messId}/filename
+    match /messes/{messId}/{fileName} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024  // 10MB max
+                   && (
+                     request.resource.contentType.matches('image/.*') ||
+                     request.resource.contentType.matches('application/pdf') ||
+                     request.resource.contentType.matches('application/vnd.ms-excel') ||
+                     request.resource.contentType.matches('application/vnd.openxmlformats.*')
+                   );
+      allow delete: if request.auth != null;
+    }
+
+    // Default: deny all
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

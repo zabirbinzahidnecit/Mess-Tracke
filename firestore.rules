@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Simple helper — শুধু login check
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    // ── users ─────────────────────────────────────────────
+    // যেকোনো logged-in user পড়তে পারবে
+    // নিজের doc নিজে create/update করতে পারবে
+    match /users/{uid} {
+      allow read:   if isLoggedIn();
+      allow create: if isLoggedIn() && request.auth.uid == uid;
+      allow update: if isLoggedIn(); // platform admin যেকোনো user update করতে পারবে
+      allow delete: if isLoggedIn();
+    }
+
+    // ── messes ────────────────────────────────────────────
+    match /messes/{messId} {
+      allow read:   if isLoggedIn();
+      allow create: if isLoggedIn();
+      allow update: if isLoggedIn();
+      allow delete: if isLoggedIn();
+
+      match /members/{memberId} {
+        allow read:   if isLoggedIn();
+        allow create: if isLoggedIn();
+        allow update: if isLoggedIn();
+        allow delete: if isLoggedIn();
+      }
+      match /settings/{s} {
+        allow read:  if isLoggedIn();
+        allow write: if isLoggedIn();
+      }
+      match /meals/{m} {
+        allow read:  if isLoggedIn();
+        allow write: if isLoggedIn();
+      }
+      match /expenses/{e} {
+        allow read:   if isLoggedIn();
+        allow create: if isLoggedIn();
+        allow update: if isLoggedIn();
+        allow delete: if isLoggedIn();
+      }
+      match /deposits/{d} {
+        allow read:   if isLoggedIn();
+        allow create: if isLoggedIn();
+        allow update: if isLoggedIn();
+        allow delete: if isLoggedIn();
+      }
+      match /notices/{n} {
+        allow read:   if isLoggedIn();
+        allow create: if isLoggedIn();
+        allow delete: if isLoggedIn();
+      }
+      match /rent/{r} {
+        allow read:  if isLoggedIn();
+        allow write: if isLoggedIn();
+      }
+      match /invites/{token} {
+        allow read:   if isLoggedIn();
+        allow create: if isLoggedIn();
+        allow update: if isLoggedIn();
+        allow delete: if isLoggedIn();
+      }
+    }
+
+    // ── messRequests ──────────────────────────────────────
+    match /messRequests/{reqId} {
+      allow read:   if isLoggedIn();
+      allow create: if isLoggedIn();
+      allow update: if isLoggedIn();
+      allow delete: if isLoggedIn();
+    }
+
+    // ── inviteIndex ───────────────────────────────────────
+    match /inviteIndex/{key} {
+      allow read:  if isLoggedIn();
+      allow write: if isLoggedIn();
+    }
+
+    // ── paymentRequests ───────────────────────────────────
+    match /paymentRequests/{id} {
+      allow read:   if isLoggedIn();
+      allow create: if isLoggedIn();
+      allow update: if isLoggedIn();
+      allow delete: if isLoggedIn();
+    }
+  }
+}

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="bn" id="html-root">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#146b40"/>
+<meta name="description" content="মেসের মিল, বাজার ও হিসাব এক জায়গায় ট্র্যাক করুন"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="মিল ট্র্যাকার"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icons/icon-192.png"/>
+<title>মেস মিল ট্র্যাকার</title>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="style.css"/>
+<style>
+html,body{margin:0;padding:0;overflow-x:hidden}
+#app{min-height:100vh;width:100%;display:block;overflow-x:hidden}
+
+/* ── Loading overlay with progress bar ── */
+#lov{
+  position:fixed;inset:0;background:rgba(1,26,14,.94);
+  z-index:9999;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;
+}
+#lov.on{display:flex}
+.lov-spin{
+  width:48px;height:48px;
+  border:3px solid rgba(255,255,255,.1);
+  border-top-color:#3fcf85;
+  border-radius:50%;
+  animation:lovSpin .75s linear infinite;
+}
+@keyframes lovSpin{to{transform:rotate(360deg)}}
+#lov-msg{
+  color:#85e0b5;font-size:13px;font-weight:500;
+  font-family:'Hind Siliguri',sans-serif;
+  min-height:20px;text-align:center;
+}
+/* Progress bar */
+#lov-bar{
+  width:180px;height:4px;
+  background:rgba(255,255,255,.1);
+  border-radius:4px;overflow:hidden;
+}
+#lov-bar-inner{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,#1fa860,#3fcf85);
+  border-radius:4px;
+  transition:width 2s ease-out;
+}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;bottom:22px;left:50%;
+  transform:translateX(-50%) translateY(60px);
+  padding:10px 22px;border-radius:40px;
+  font-size:12px;font-weight:600;
+  font-family:'Hind Siliguri',sans-serif;
+  pointer-events:none;z-index:8000;
+  white-space:nowrap;opacity:0;
+  background:#0a180e;color:#fff;
+  transition:all .28s cubic-bezier(.4,0,.2,1);
+  max-width:calc(100vw - 32px);text-align:center;
+}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.ok{background:#083d22}
+.toast.er{background:#5a0f0f}
+.toast.info{background:#12265a}
+
+/* ── PWA bar ── */
+#pwa-bar{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  z-index:200;background:#011a0e;
+  border-top:1px solid rgba(255,255,255,.1);
+  padding:11px 16px;align-items:center;gap:12px;
+}
+#pwa-bar.on{display:flex}
+#pwa-bar p{flex:1;font-size:12px;color:#85e0b5}
+
+/* ── Modal shared ── */
+.mo{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,20,10,.55);z-index:300;
+  align-items:center;justify-content:center;
+  padding:20px;backdrop-filter:blur(3px);
+}
+.mo.open,.mo[style*="flex"]{display:flex}
+.mbox{
+  background:#fff;border-radius:20px;
+  width:100%;max-width:380px;padding:22px;
+  box-shadow:0 8px 32px rgba(10,30,18,.18);
+  max-height:90vh;overflow-y:auto;
+}
+.mbox h3{font-size:15px;font-weight:700;color:#0a180e;margin-bottom:14px}
+.mact{display:flex;gap:8px;margin-top:14px}
+.mact .btn{flex:1}
+
+/* Admin tabs */
+.adm-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.adm-tab{height:30px;padding:0 12px;border-radius:20px;font-size:12px;font-weight:600;
+  border:1.5px solid var(--line2);background:var(--paper);color:var(--ink3);cursor:pointer;transition:.12s}
+.adm-tab:hover{background:var(--g7);border-color:var(--g4);color:var(--g1)}
+.adm-tab.active{background:var(--g2);color:#fff;border-color:var(--g2)}
+.adm-loading{padding:30px;text-align:center;color:var(--ink3);font-size:13px}
+.adp-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.adp-h{font-size:17px;font-weight:700;color:var(--ink);margin:0}
+.adp-sub{font-size:12px;color:var(--ink3);margin:3px 0 0}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<!-- Loading overlay -->
+<div id="lov">
+  <div class="lov-spin"></div>
+  <div id="lov-bar"><div id="lov-bar-inner"></div></div>
+  <p id="lov-msg">লোড হচ্ছে…</p>
+</div>
+
+<!-- PWA bar -->
+<div id="pwa-bar">
+  <p>📱 এই অ্যাপ মোবাইলে ইনস্টল করুন!</p>
+  <button class="btn btn-p btn-sm" onclick="window.__installPWA()">ইনস্টল করুন</button>
+  <button class="btn btn-ghost btn-sm" onclick="document.getElementById('pwa-bar').classList.remove('on')">✕</button>
+</div>
+
+<script type="module">
+import { initAuth } from './js/auth.js';
+import { ld } from './js/utils.js';
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  document.getElementById('pwa-bar')?.classList.add('on');
+});
+window.__installPWA = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('pwa-bar')?.classList.remove('on');
+};
+
+// Invite link handle
+const params = new URLSearchParams(window.location.search);
+const inviteToken  = params.get('invite');
+const inviteMessId = params.get('mess');
+if (inviteToken && inviteMessId) {
+  localStorage.setItem('mm_pending_invite', JSON.stringify({ token: inviteToken, messId: inviteMessId }));
+  window.history.replaceState({}, '', window.location.pathname);
+}
+
+ld('অ্যাপ শুরু হচ্ছে…');
+initAuth();
+</script>
+</body>
+</html>
